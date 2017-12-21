@@ -7,16 +7,19 @@
                 <i :class="[open ? options.closeClass : options.openClass]"></i>
             </span>
             <span class="item-toggle" v-else> </span>
+            <!--
             <span class="item-checkbox" v-if="options.checkbox">
                 <input type="checkbox" :checked="ids.indexOf(model.id) >= 0" v-show="false">
                 <label class="item-label" @click="toggleChecked">
                     <span :class="[labelIcon, labelStatus]"></span>
                 </label>
             </span>
+            -->
             <span class="item-name" :class="isBold"
                   @click="itemClick">{{model[options.itemName]}}
             </span>
             <span class="item-btn">
+                <!--
                 <i class="add-btn"
                    v-if="options.showAdd"
                    @click="addChild"
@@ -24,7 +27,7 @@
                 <i class="edit-btn"
                    v-if="options.showEdit"
                    @click="itemEdit"
-                   :class="[options.editClass]"></i>&nbsp;
+                   :class="[options.editClass]"></i>&nbsp; -->
                 <i class="delete-btn"
                    v-if="options.showDelete"
                    @click="itemDelete"
