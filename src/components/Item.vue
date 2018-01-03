@@ -16,7 +16,7 @@
             </span>
             -->
             <span class="item-name" :class="isBold"
-                  @click="itemClick">{{model[options.itemName]}}
+                  @click="toggle">{{model[options.itemName]}}
             </span>
             <span class="item-btn">
                 <!--

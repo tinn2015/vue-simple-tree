@@ -1,223 +1,163 @@
 <template>
-  <div id="app">
-      <div class="container">
-          <div class="row">
-              <div class="col-md-12 text-center">
-                  <img src="./assets/logo.png">
-                  <p class="lead">vue-tree 示例 <a href="https://github.com/jiaxincui/vue-tree">github</a></p>
+  <b-container fluid>
+    <!-- User Interface controls -->
+    <b-row>
+      <b-col md="6" class="my-1">
+        <b-form-group horizontal label="Filter" class="mb-0">
+          <b-input-group>
+            <b-form-input v-model="filter" placeholder="Type to Search" />
+            <b-input-group-button>
+              <b-btn :disabled="!filter" @click="filter = ''">Clear</b-btn>
+            </b-input-group-button>
+          </b-input-group>
+        </b-form-group>
+      </b-col>
+      <b-col md="6" class="my-1">
+        <b-form-group horizontal label="Sort" class="mb-0">
+          <b-input-group>
+            <b-form-select v-model="sortBy" :options="sortOptions">
+              <option slot="first" :value="null">-- none --</option>
+            </b-form-select>
+            <b-input-group-button>
+              <b-form-select :disabled="!sortBy" v-model="sortDesc">
+                <option :value="false">Asc</option>
+                <option :value="true">Desc</option>
+              </b-form-select>
+            </b-input-group-button>
+          </b-input-group>
+        </b-form-group>
+      </b-col>
+      <b-col md="6" class="my-1">
+        <b-pagination :total-rows="totalRows" :per-page="perPage" v-model="currentPage" class="my-0" />
+      </b-col>
+      <b-col md="6" class="my-1">
+        <b-form-group horizontal label="Per page" class="mb-0">
+          <b-form-select :options="pageOptions" v-model="perPage" />
+        </b-form-group>
+      </b-col>
+    </b-row>
 
-              </div>
-              <div class="col-md-6">
-                  <vue-tree :tree-data="treeData"
-                            v-model="ids"
-                            :options="options"
-                            @add-a-child="addAChild"
-                            @item-click="itemClick"
-                            @item-edit="itemEdit"
-                            @item-delete="itemDelete">
-                  </vue-tree>
-              </div>
-              <div class="col-md-6">
-                  <p class="lead">设置</p>
-                  <div class="form-group">
-                      <div class="checkbox">
-                          <label>
-                              <input type="checkbox" v-model="options.checkbox"> 显示复选框
-                          </label>
-                      </div>
-                      <div class="checkbox">
-                          <label>
-                              <input type="checkbox" v-model="options.checkedOpen"> 已选择是否展开
-                          </label>
-                      </div>
-                      <div class="checkbox">
-                          <label>
-                              <input type="checkbox" v-model="options.folderBold"> 目录加粗
-                          </label>
-                      </div>
-                      <div class="checkbox">
-                          <label>
-                              <input type="checkbox" v-model="options.idsWithParent"> 复选是否包含目录
-                          </label>
-                      </div>
-                      <div class="checkbox">
-                          <label>
-                              <input type="checkbox" v-model="options.showAdd"> 显示添加按钮
-                          </label>
-                      </div>
-                      <div class="checkbox">
-                          <label>
-                              <input type="checkbox" v-model="options.showEdit"> 显示编辑按钮
-                          </label>
-                      </div>
-                      <div class="checkbox">
-                          <label>
-                              <input type="checkbox" v-model="options.showDelete"> 显示删除按钮
-                          </label>
-                      </div>
-                  </div>
-                  <div class="form-group">
-                      <label>初始展开层级</label>
-                      <input type="number" class="form-control" v-model="options.depthOpen">
-                  </div>
-                  <h3>Events</h3>
-                  <p>点击增删改按钮试一下</p>
-                  <p v-for="item in message"><mark>{{item}}</mark></p>
-                  <h3>Checked ids</h3>
-                  <p>{{ids}}</p>
-                  <h3>Options</h3>
-                  <p>{{options}}</p>
-              </div>
-          </div>
-      </div>
-  </div>
+    <!-- Main table element -->
+    <b-table show-empty
+             stacked="md"
+             :items="items"
+             :fields="fields"
+             :current-page="currentPage"
+             :per-page="perPage"
+             :filter="filter"
+             :sort-by.sync="sortBy"
+             :sort-desc.sync="sortDesc"
+             @filtered="onFiltered"
+    >
+      <template slot="name" slot-scope="row">{{row.value.first}} {{row.value.last}}</template>
+      <template slot="isActive" slot-scope="row">{{row.value?'Yes :)':'No :('}}</template>
+      <template slot="actions" slot-scope="row">
+        <!-- We use @click.stop here to prevent a 'row-clicked' event from also happening -->
+        <b-button size="sm" @click.stop="info(row.item, row.index, $event.target)" class="mr-1">
+          Info modal
+        </b-button>
+        <b-button size="sm" @click.stop="row.toggleDetails">
+          {{ row.detailsShowing ? 'Hide' : 'Show' }} Details
+        </b-button>
+      </template>
+      <template slot="row-details" slot-scope="row">
+        <b-card>
+          <ul>
+            <li v-for="(value, key) in row.item" :key="key">{{ key }}: {{ value}}</li>
+          </ul>
+        </b-card>
+      </template>
+    </b-table>
+
+    <!-- Info modal -->
+    <b-modal id="modalInfo" @hide="resetModal" :title="modalInfo.title" ok-only>
+      <pre>{{ modalInfo.content }}</pre>
+    </b-modal>
+
+  </b-container>
 </template>
-
+<script src="//unpkg.com/babel-polyfill@latest/dist/polyfill.min.js"></script>
+<script src="//unpkg.com/bootstrap-vue@latest/dist/bootstrap-vue.js"></script>
 <script>
+import Vue from 'vue'
+import bTable from 'bootstrap-vue/es/components/table/table';
+import { Table } from 'bootstrap-vue/es/components';
+
+Vue.use(Table);
+
+const items = [
+  { isActive: true, age: 40, name: { first: 'Dickerson', last: 'Macdonald' } },
+  { isActive: false, age: 21, name: { first: 'Larsen', last: 'Shaw' } },
+  {
+    isActive: false,
+    age: 9,
+    name: { first: 'Mini', last: 'Navarro' },
+    _rowVariant: 'success'
+  },
+  { isActive: false, age: 89, name: { first: 'Geneva', last: 'Wilson' } },
+  { isActive: true, age: 38, name: { first: 'Jami', last: 'Carney' } },
+  { isActive: false, age: 27, name: { first: 'Essie', last: 'Dunlap' } },
+  { isActive: true, age: 40, name: { first: 'Thor', last: 'Macdonald' } },
+  {
+    isActive: true,
+    age: 87,
+    name: { first: 'Larsen', last: 'Shaw' },
+    _cellVariants: { age: 'danger', isActive: 'warning' }
+  },
+  { isActive: false, age: 26, name: { first: 'Mitzi', last: 'Navarro' } },
+  { isActive: false, age: 22, name: { first: 'Genevieve', last: 'Wilson' } },
+  { isActive: true, age: 38, name: { first: 'John', last: 'Carney' } },
+  { isActive: false, age: 29, name: { first: 'Dick', last: 'Dunlap' } }
+]
+
 export default {
     name: 'app',
     data () {
-        return {
-            ids: [62],
-
-            options: {
-                itemName: 'name',
-                checkbox: true,
-                checkedOpen: true,
-                folderBold: true,
-                showAdd: true,
-                showEdit: true,
-                showDelete: true,
-                addClass: 'fa fa-plus-square-o',
-                editClass: 'fa fa-edit',
-                deleteClass: 'fa fa-trash-o',
-                openClass: 'fa fa-angle-right',
-                closeClass: 'fa fa-angle-down',
-                idsWithParent: false,
-                depthOpen: 0,
-                halfCheckedClass: 'fa fa-minus-square-o fa-fw text-primary',
-                checkedClass: 'fa fa-check-square-o fa-fw text-danger',
-                unCheckedClass: 'fa fa-square-o fa-fw'
-            },
-
-            treeData:[{
-                name: '根目录[1]',
-                id: 1,
-                children: [
-                    {
-                        name: '一级节点[4]', id: 4,
-                        children: [
-                            {
-                                name: '二级节点[5]', id: 5,
-                                children: [
-                                    { name: '三级节点[6]', id: 6},
-                                    { name: '三级节点[8]', id: 8},
-                                    { name: '三级节点[30]', id: 30},
-                                    {
-                                        name: '三级节点[31]',
-                                        id: 31,
-                                        children: [
-                                            { name: '四级节点[36]', id: 36},
-                                            { name: '四级节点[38]', id: 38},
-                                            { name: '四级节点[39]', id: 39},
-                                            { name: '四级节点[48]', id: 48},
-                                        ]
-                                    }
-                                ]
-                            },
-                            { name: '二级节点[9]', id: 9},
-                            { name: '二级节点[10]', id: 10},
-                            {
-                                name: '二级节点[11]', id: 11,
-                                children: [
-                                    { name: '三级节点[12]', id: 12},
-                                    { name: '三级节点[13]', id: 13},
-                                    {
-                                        name: '三级节点[14]', id: 14,
-                                        children: [
-                                            { name: '四级节点[15]', id: 15},
-                                            { name: '四级节点[16]', id: 16},
-                                            { name: '四级节点[17]', id: 17},
-                                            { name: '四级节点[18]', id: 18},
-                                            {
-                                                name: '四级节点[19]', id: 19,
-                                                children: [
-                                                    { name: '五级节点[20]', id: 20},
-                                                    { name: '五级节点[21]', id: 21},
-                                                    { name: '五级节点[22]', id: 22},
-                                                    { name: '五级节点[23]', id: 23},
-                                                    { name: '五级节点[24]', id: 24},
-                                                ]
-                                            },
-                                        ]
-                                    }
-                                ]
-                            }
-                        ]
-                    },
-                    { name: '一级节点[2]', id: 2},
-                    {
-                        name: '一级节点[59]', id: 59,
-                        children: [
-                            { name: '二级节点[60]', id: 60},
-                            { name: '二级节点[61]', id: 61},
-                            { name: '二级节点[62]', id: 62},
-                            { name: '二级节点[63]', id: 63},
-                            { name: '二级节点[64]', id: 64},
-                        ]
-                    },
-                    { name: '一级节点[3]', id: 3},
-                ]
-            },
-            {
-                name: '根目录[99]',
-                id: 99,
-                children: [
-                    { name: '二级节点[70]', id: 70},
-                    { name: '二级节点[71]', id: 71},
-                    { name: '二级节点[72]', id: 72},
-                    { name: '二级节点[73]', id: 73},
-                    {
-                        name: '二级节点[74]',
-                        id: 74,
-                        children: [
-                            { name: '三级节点[82]', id: 82},
-                            { name: '三级节点[83]', id: 83}
-                            ]
-                    },
-                ]
-            }],
-
-            message: []
-        }
-    },
-
-    created() {
-        let t
-    },
-
-    methods: {
-        addAChild(id) {
-            this.message.push('点击了添加子节点按钮，父节点ID[' + id + ']')
-        },
-
-        itemClick(id) {
-            this.message.push('点击了节点，节点ID[' + id + ']')
-        },
-
-        itemEdit(id) {
-            this.message.push('点击了编辑按钮，节点ID[' + id + ']')
-        },
-
-        itemDelete(id) {
-            this.message.push('点击了删除按钮，节点ID[' + id + ']')
-        }
+    return {
+      items: items,
+      fields: [
+        { key: 'name', label: 'Person Full name', sortable: true },
+        { key: 'age', label: 'Person age', sortable: true, 'class': 'text-center' },
+        { key: 'isActive', label: 'is Active' },
+        { key: 'actions', label: 'Actions' }
+      ],
+      currentPage: 1,
+      perPage: 5,
+      totalRows: items.length,
+      pageOptions: [ 5, 10, 15 ],
+      sortBy: null,
+      sortDesc: false,
+      filter: null,
+      modalInfo: { title: '', content: '' }
     }
-//    components: {'vue-tree': VueTree}
+  },
+  computed: {
+    sortOptions () {
+      // Create an options list from our fields
+      return this.fields
+        .filter(f => f.sortable)
+        .map(f => { return { text: f.label, value: f.key } })
+    }
+  },
+  methods: {
+    info (item, index, button) {
+      this.modalInfo.title = `Row index: ${index}`
+      this.modalInfo.content = JSON.stringify(item, null, 2)
+      this.$root.$emit('bv::show::modal', 'modalInfo', button)
+    },
+    resetModal () {
+      this.modalInfo.title = ''
+      this.modalInfo.content = ''
+    },
+    onFiltered (filteredItems) {
+      // Trigger pagination to update the number of buttons/pages due to filtering
+      this.totalRows = filteredItems.length
+      this.currentPage = 1
+    }
+  }
 }
 </script>
 
 <style>
-@import "~font-awesome/css/font-awesome.min.css";
-@import "~bootstrap/dist/css/bootstrap.min.css";
+
 </style>
